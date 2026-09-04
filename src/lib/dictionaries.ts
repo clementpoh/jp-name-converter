@@ -32,7 +32,24 @@ export async function loadEnamdict(): Promise<EnamdictFile | null> {
 
 async function fetchEnamdict(): Promise<EnamdictFile | null> {
   try {
-    const res = await fetch("/data/enamdict-people.json.gz")
+    // Singlefile build: the gzip payload is base64-encoded into a global,
+    // so we can decode entirely in memory without hitting the network.
+    const inline =
+      typeof window !== "undefined" ? window.__ENAMDICT_GZ_B64__ : undefined
+    if (typeof inline === "string" && inline.length > 0) {
+      const bytes = base64ToBytes(inline)
+      const stream = new Blob([bytes as BlobPart])
+        .stream()
+        .pipeThrough(new DecompressionStream("gzip"))
+      const data = (await new Response(stream).json()) as EnamdictFile
+      enamdict = data
+      return data
+    }
+
+    // `import.meta.env.BASE_URL` is `/` in dev, `/<repo>/` on GH Pages
+    // project sites, and `./` in the singlefile build (though the inline
+    // path above fires first there, so this branch never runs in that mode).
+    const res = await fetch(`${import.meta.env.BASE_URL}data/enamdict-people.json.gz`)
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
     const stream = res.body.pipeThrough(new DecompressionStream("gzip"))
     const data = (await new Response(stream).json()) as EnamdictFile
@@ -43,6 +60,14 @@ async function fetchEnamdict(): Promise<EnamdictFile | null> {
     enamdictPromise = null
     return null
   }
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const clean = b64.replace(/\s+/g, "")
+  const binary = atob(clean)
+  const out = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+  return out
 }
 
 export function normalizeLatinKey(token: string): string {

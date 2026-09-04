@@ -24,6 +24,24 @@ npm test
 
 After the first load, the service worker caches the app and the JMnedict person-name extract so conversion works with the network off.
 
+## Single-file offline build
+
+```bash
+npm run build:single
+```
+
+Writes `dist-single/jp-payee-kana.html` (~6 MB): one HTML file with the app,
+Tailwind CSS, and the entire JMnedict extract base64-inlined. Open it directly
+from disk (`file://`), email it, or drop it on a USB stick — no server, no
+service worker, no network needed for the core convert flow.
+
+Caveats for the single-file build:
+- The optional kuromoji reading fallback still fetches ~17 MB from
+  `cdn.jsdelivr.net` the first time it's used, so that specific button needs
+  the network once. The rest of the app is fully offline.
+- Because it's served from `file://`, PWA / service-worker features are
+  disabled (they're not needed anyway — the whole app is one file).
+
 ## How conversion works
 
 1. **Latin names** — conventional katakana table (Western, Korean, Chinese, Vietnamese, Japanese romaji), including variants such as `Kim`/`Gim`, `Lee`/`Yi`, `Wang`/`Wong`.

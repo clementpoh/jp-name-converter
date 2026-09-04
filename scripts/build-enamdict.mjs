@@ -17,6 +17,16 @@ const TYPE_MAP = {
   u: "person",
   h: "person",
 }
+/**
+ * Types 'u' (unclassified) and 'h' (full name of a particular person) are
+ * mostly full-name transliterations of celebrities & historical figures whose
+ * English gloss looks like "Lee Harvey Oswald". `firstRomaji()` only keeps the
+ * first Latin word, so if we indexed those under Latin they'd file the entire
+ * run-on katakana ("リーハーヴェイオズワルド") under just "lee" and pollute
+ * the suggestion list for anyone typing a common surname like Lee, Kim, John.
+ * They stay in the kanji index (useful when someone pastes a kanji full name).
+ */
+const LATIN_INDEX_TYPES = new Set(["s", "g", "f", "m"])
 
 function hiraganaToKatakana(s) {
   return s.replace(/[\u3041-\u3096]/g, (ch) =>
@@ -91,13 +101,15 @@ for await (const line of rl) {
       kanji.set(head, list)
     }
   }
-  const romaji = firstRomaji(rest)
-  if (romaji && romaji.length > 1) {
-    const key = romaji.toLowerCase()
-    const list = latin.get(key) ?? []
-    if (!list.some((e) => e.k === kana)) {
-      list.push({ k: kana, t: kind })
-      latin.set(key, list)
+  if (LATIN_INDEX_TYPES.has(type)) {
+    const romaji = firstRomaji(rest)
+    if (romaji && romaji.length > 1) {
+      const key = romaji.toLowerCase()
+      const list = latin.get(key) ?? []
+      if (!list.some((e) => e.k === kana)) {
+        list.push({ k: kana, t: kind })
+        latin.set(key, list)
+      }
     }
   }
   kept++

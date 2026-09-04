@@ -7,6 +7,7 @@ import {
   Wifi,
   BookOpen,
   AlertTriangle,
+  Languages,
 } from "lucide-react"
 import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,7 @@ export default function App() {
   const [kuroProgress, setKuroProgress] = useState(0)
   const [kuroError, setKuroError] = useState<string | null>(null)
   const [morph, setMorph] = useState<Record<string, string>>({})
+  const [morphBusy, setMorphBusy] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [pwaReady, setPwaReady] = useState(false)
   const online = useOnline()
@@ -105,6 +107,52 @@ export default function App() {
 
   const unresolved = result.tokens.filter((t) => t.unresolvedKanji)
 
+  // Tokens we have not asked kuromoji about yet. Keyed on presence rather than
+  // truthiness so a word that yields no reading is not retried forever.
+  const pendingReadings = unresolved
+    .map((t) => t.raw)
+    .filter((raw) => !(raw in morph))
+    .join("\u0000")
+
+  useEffect(() => {
+    if (!kuroReady || !pendingReadings) {
+      setMorphBusy(false)
+      return
+    }
+    let cancelled = false
+    setMorphBusy(true)
+    void (async () => {
+      const next: Record<string, string> = {}
+      for (const word of pendingReadings.split("\u0000")) {
+        try {
+          next[word] = await readingWithKuromoji(word)
+        } catch {
+          next[word] = ""
+        }
+      }
+      if (cancelled) return
+      setMorph((prev) => ({ ...prev, ...next }))
+      setMorphBusy(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [kuroReady, pendingReadings])
+
+  const kuroBadge = kuroError
+    ? { variant: "warning" as const, label: "Kuromoji failed", spinning: false }
+    : kuroLoading
+      ? {
+          variant: "outline" as const,
+          label: `Kuromoji ${Math.round(kuroProgress * 100)}%`,
+          spinning: true,
+        }
+      : morphBusy
+        ? { variant: "success" as const, label: "Kuromoji reading…", spinning: true }
+        : kuroReady
+          ? { variant: "success" as const, label: "Kuromoji ready", spinning: false }
+          : { variant: "outline" as const, label: "Kuromoji off", spinning: false }
+
   async function onCopy(key: string, value: string) {
     if (!value) return
     await copyText(value)
@@ -118,14 +166,6 @@ export default function App() {
     try {
       await loadKuromoji(setKuroProgress)
       setKuroReady(true)
-      const next: Record<string, string> = { ...morph }
-      const latest = convert(input, { direction, selections, morphologicalReadings: morph })
-      for (const token of latest.tokens) {
-        if (token.unresolvedKanji) {
-          next[token.raw] = await readingWithKuromoji(token.raw)
-        }
-      }
-      setMorph(next)
     } catch (error) {
       setKuroError(
         error instanceof Error ? error.message : "Could not load kuromoji.",
@@ -180,6 +220,14 @@ export default function App() {
             <Badge variant={dictReady ? "success" : "outline"}>
               <BookOpen className="mr-1 size-3" />
               {dictReady ? "JMnedict loaded" : "Core names only"}
+            </Badge>
+            <Badge variant={kuroBadge.variant}>
+              {kuroBadge.spinning ? (
+                <Loader2 className="mr-1 size-3 animate-spin" />
+              ) : (
+                <Languages className="mr-1 size-3" />
+              )}
+              {kuroBadge.label}
             </Badge>
           </div>
         </div>

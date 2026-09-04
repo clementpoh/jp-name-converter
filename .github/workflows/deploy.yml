@@ -1,0 +1,64 @@
+name: Deploy to GitHub Pages
+
+# Publishes the production Vite build (dist/) to GitHub Pages on every push to
+# main. The `--base` flag rewrites asset URLs so they resolve at project pages
+# (https://<user>.github.io/jp-name-converter/). If you move to a custom domain
+# or a <user>.github.io root repo, drop the `--base` flag.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two Pages deployments at once for the same repo; if a newer commit
+# lands while one is running let the current deploy finish so we don't leave
+# the site in a half-uploaded state.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build for GitHub Pages
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+
+      - name: Copy 404 fallback for SPA routes
+        # Not strictly needed today (single route), but if we ever add client
+        # routes GitHub Pages will hard-404 them without this.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

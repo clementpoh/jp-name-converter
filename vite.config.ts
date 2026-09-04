@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
@@ -7,11 +7,36 @@ import path from "node:path"
 
 const PORT = 43147
 
+/**
+ * `zlibjs/bin/gunzip.min.js` (a transitive dep of kuromoji) is a legacy UMD
+ * bundle. Its IIFE ends with `.call(this)` and captures that `this` as its
+ * "global" object. In an ESM module context `this` is `undefined`, so at
+ * runtime the very first exported symbol registration does
+ *   ("Zlib" in undefined)  →  TypeError: Cannot use 'in' operator to search
+ *                             for 'Zlib' in undefined
+ * Rewrite that single call site to bind to `globalThis` instead.
+ */
+function patchZlibjsUmd(): Plugin {
+  return {
+    name: "patch-zlibjs-umd-this",
+    enforce: "pre",
+    transform(code, id) {
+      if (!id.includes("zlibjs/bin/") || !id.endsWith(".min.js")) return null
+      if (!code.endsWith(").call(this);")) return null
+      return {
+        code: code.replace(/\)\.call\(this\);$/, ").call(globalThis);"),
+        map: null,
+      }
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const singlefile = mode === "singlefile"
 
   return {
     plugins: [
+      patchZlibjsUmd(),
       react(),
       tailwindcss(),
       VitePWA({

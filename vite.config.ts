@@ -21,12 +21,16 @@ function patchZlibjsUmd(): Plugin {
     name: "patch-zlibjs-umd-this",
     enforce: "pre",
     transform(code, id) {
-      if (!id.includes("zlibjs/bin/") || !id.endsWith(".min.js")) return null
-      if (!code.endsWith(").call(this);")) return null
-      return {
-        code: code.replace(/\)\.call\(this\);$/, ").call(globalThis);"),
-        map: null,
-      }
+      // Only touch node_modules/zlibjs/bin/*.min.js.
+      if (!/[\\/]zlibjs[\\/]bin[\\/][^\\/]+\.min\.js(\?|$)/.test(id)) return null
+      // The upstream file ends with `.call(this);\n`. Bind `this` to
+      // `globalThis` so the internal `var t=this` sees a real global.
+      const patched = code.replace(
+        /\)\.call\(this\);?\s*$/,
+        ").call(globalThis);\n",
+      )
+      if (patched === code) return null
+      return { code: patched, map: null }
     },
   }
 }

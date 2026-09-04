@@ -1,5 +1,5 @@
 import { toKatakana, toHiragana, isKatakana } from "wanakana"
-import { expandCompanySuffixes } from "./company-suffixes"
+import { expandCompanySuffixes, matchCompanySuffix } from "./company-suffixes"
 import { detectScript, tokenScript } from "./detect"
 import {
   lookupKanji,
@@ -64,6 +64,34 @@ function tokenize(text: string): string[] {
   return pieces
 }
 
+function latinDisplay(raw: string): string {
+  if (raw.length <= 4 && raw === raw.toUpperCase()) return raw
+  return titleCaseName(raw)
+}
+
+function englishForToken(token: TokenResult): string {
+  if (token.chosen?.source === "suffix") return token.chosen.romaji
+  if (token.script === "latin") return latinDisplay(token.raw)
+  return token.chosen?.romaji || latinDisplay(token.raw)
+}
+
+function suffixToken(raw: string): TokenResult | null {
+  const suffix = matchCompanySuffix(raw)
+  if (!suffix) return null
+  const chosen: ReadingOption = {
+    kana: suffix.kana,
+    source: "suffix",
+    romaji: suffix.latin,
+    label: suffix.latin,
+  }
+  return {
+    raw,
+    script: tokenScript(raw),
+    chosen,
+    alternatives: [chosen],
+    unresolvedKanji: false,
+  }
+}
 function kanaOption(raw: string): ReadingOption {
   const kana = isKatakana(raw.replace(/[()ｶﾕ]/g, ""))
     ? raw.replace(/ｶ/g, "カ").replace(/ﾕ/g, "ユ")
@@ -81,6 +109,8 @@ function resolveToken(
   morphologicalReadings: Record<string, string> | undefined,
   direction: Direction,
 ): TokenResult {
+  const asSuffix = suffixToken(raw)
+  if (asSuffix) return asSuffix
   const script = tokenScript(raw)
   if (script === "kana") {
     const chosen = kanaOption(raw)
@@ -225,7 +255,7 @@ export function convert(input: string, options: ConvertOptions = {}): ConvertRes
   const katakana = kanaParts.join(" ")
   const zengin = foldZengin(katakana, maxBytes)
 
-  const romajiParts = tokens.map((t) => t.chosen?.romaji ?? titleCaseName(t.raw))
+  const romajiParts = tokens.map((t) => englishForToken(t))
   const romaji = romajiParts.join(" ").replace(/ {2,}/g, " ").trim()
   const display = titleCaseName(romaji)
   const uppercase = passportUpper(romaji)

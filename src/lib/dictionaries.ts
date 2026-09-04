@@ -57,8 +57,9 @@ function option(
   kana: string,
   source: TokenSource,
   origin: Origin | undefined,
+  romajiHint?: string,
 ): ReadingOption {
-  const romaji = titleCaseName(kanaToRomaji(kana)) || kana
+  const romaji = romajiHint || titleCaseName(kanaToRomaji(kana)) || kana
   const originLabel = origin ? ` · ${origin}` : ""
   return {
     kana,
@@ -93,10 +94,10 @@ export function lookupLatin(token: string): ReadingOption[] {
 
 export function lookupKanji(token: string): ReadingOption[] {
   const overlay = (KANJI_OVERLAYS[token] ?? []).map((h) =>
-    option(h.kana, "overlay", h.origin),
+    option(h.kana, "overlay", h.origin, h.romaji),
   )
   const common = (JP_COMMON[token] ?? []).map((h) =>
-    option(h.kana, "dictionary", "japanese"),
+    option(h.kana, "dictionary", "japanese", h.romaji),
   )
   const fromEnam = (enamdict?.kanji[token] ?? []).map((h) =>
     option(h.k, "dictionary", "japanese"),

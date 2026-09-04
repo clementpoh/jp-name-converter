@@ -14,6 +14,7 @@ describe("beneficiary conversion", () => {
     expect(result.tokens.every((t) => t.chosen?.source === "dictionary")).toBe(
       true,
     )
+    expect(result.english.display).toBe("John Smith")
   })
 
   it("uses conventional katakana for Michael, not a naive phonetic miss", () => {
@@ -65,6 +66,7 @@ describe("beneficiary conversion", () => {
     expect(result.zengin.value).toBe(hw("ヤマダ タロウ"))
     expect(result.english.display.toLowerCase()).toContain("yamada")
     expect(result.english.display.toLowerCase()).toContain("taro")
+    expect(result.english.display).toBe("Yamada Taro")
   })
 
   it("tags unknown latin as phonetic", () => {
@@ -102,6 +104,7 @@ describe("beneficiary conversion", () => {
     expect(ltd.zengin.value).toContain(hw("リミテッド"))
     const inc = convert("Acme Inc")
     expect(inc.katakana).toContain("インコーポレイテッド")
+    expect(ltd.english.display).toBe("Acme Ltd")
   })
 
   it("flags overflow over 30 bytes", () => {

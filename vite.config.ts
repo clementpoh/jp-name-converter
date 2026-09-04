@@ -8,13 +8,29 @@ import path from "node:path"
 const PORT = 43147
 
 /**
- * `zlibjs/bin/gunzip.min.js` (a transitive dep of kuromoji) is a legacy UMD
- * bundle. Its IIFE ends with `.call(this)` and captures that `this` as its
- * "global" object. In an ESM module context `this` is `undefined`, so at
- * runtime the very first exported symbol registration does
- *   ("Zlib" in undefined)  →  TypeError: Cannot use 'in' operator to search
- *                             for 'Zlib' in undefined
- * Rewrite that single call site to bind to `globalThis` instead.
+ * `zlibjs/bin/gunzip.min.js` (a transitive dep of kuromoji) is Closure-compiler
+ * output with no `module.exports` at all. It publishes its API by writing onto
+ * whatever `this` its trailing `.call(this)` supplies:
+ *
+ *     (function(){ var aa = this; ... aa.Zlib.Gunzip = ...; }).call(this);
+ *
+ * It was built for browserify, where a module body runs with
+ * `this === module.exports`, so `require(...)` yields `{ Zlib: {...} }` --
+ * exactly what kuromoji's BrowserDictionaryLoader expects when it does
+ * `zlib.Zlib.Gunzip`.
+ *
+ * Under Vite/Rolldown the file is evaluated as ESM, where top-level `this` is
+ * `undefined`. That produces two distinct failures depending on the binding:
+ *   - `this` left as-is  -> "Cannot use 'in' operator to search for 'Zlib' in
+ *     undefined" while registering symbols.
+ *   - `this` bound to `globalThis` -> no crash, but `Zlib` lands on `window`
+ *     and the module exports stay empty, so kuromoji then hits
+ *     "Cannot read properties of undefined (reading 'Gunzip')".
+ *
+ * So rather than guessing at a global, give the IIFE a dedicated scope object
+ * and re-publish it through real ESM exports. Both `default` and the named
+ * `Zlib` are exported so the result works whichever shape Vite's CJS interop
+ * hands back to kuromoji's `require()`.
  */
 function patchZlibjsUmd(): Plugin {
   return {
@@ -23,14 +39,21 @@ function patchZlibjsUmd(): Plugin {
     transform(code, id) {
       // Only touch node_modules/zlibjs/bin/*.min.js.
       if (!/[\\/]zlibjs[\\/]bin[\\/][^\\/]+\.min\.js(\?|$)/.test(id)) return null
-      // The upstream file ends with `.call(this);\n`. Bind `this` to
-      // `globalThis` so the internal `var t=this` sees a real global.
-      const patched = code.replace(
+      // The upstream file ends with `.call(this);\n` (note the newline).
+      const body = code.replace(
         /\)\.call\(this\);?\s*$/,
-        ").call(globalThis);\n",
+        ").call(__zlibScope);\n",
       )
-      if (patched === code) return null
-      return { code: patched, map: null }
+      if (body === code) return null
+      return {
+        code: [
+          "const __zlibScope = {};",
+          body,
+          "export const Zlib = __zlibScope.Zlib;",
+          "export default __zlibScope;",
+        ].join("\n"),
+        map: null,
+      }
     },
   }
 }
@@ -146,6 +169,15 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: "node",
       include: ["src/**/*.test.ts"],
+      server: {
+        deps: {
+          // Vitest externalizes node_modules by default, which would let Node
+          // require zlibjs with CJS semantics (`this === module.exports`) and
+          // mask the ESM interop bug the patchZlibjsUmd plugin exists to fix.
+          // Inline it so zlibjs.test.ts exercises the real transform.
+          inline: ["zlibjs"],
+        },
+      },
     },
   }
 })

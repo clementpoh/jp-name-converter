@@ -3,6 +3,8 @@ export const ORIGINS = [
   "korean",
   "chinese",
   "vietnamese",
+  "filipino",
+  "indian",
   "japanese",
 ] as const
 

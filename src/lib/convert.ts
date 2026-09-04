@@ -25,7 +25,9 @@ function originPriority(origin: ReadingOption["origin"]): number {
   if (origin === "korean") return 2
   if (origin === "chinese") return 3
   if (origin === "vietnamese") return 4
-  if (origin === "western") return 5
+  if (origin === "filipino") return 5
+  if (origin === "indian") return 6
+  if (origin === "western") return 7
   return 9
 }
 

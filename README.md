@@ -1,4 +1,4 @@
-# JP Payee Kana
+# JP Name Converter
 
 Offline single-page prototype for **Japan payment beneficiary names**. Type a name in English or Japanese; the app folds it to the Zengin 総合振込 **受取人名** field (30 bytes of half-width katakana) and shows a latin/romaji line for records.
 
@@ -30,7 +30,7 @@ After the first load, the service worker caches the app and the JMnedict person-
 npm run build:single
 ```
 
-Writes `dist-single/jp-payee-kana.html` (~6 MB): one HTML file with the app,
+Writes `dist-single/jp-name-converter.html` (~5 MB): one HTML file with the app,
 Tailwind CSS, and the entire JMnedict extract base64-inlined. Open it directly
 from disk (`file://`), email it, or drop it on a USB stick — no server, no
 service worker, no network needed for the core convert flow.

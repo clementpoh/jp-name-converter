@@ -9,7 +9,7 @@
 //   3. Base64-encode public/data/enamdict-people.json.gz and inject it as
 //      window.__ENAMDICT_GZ_B64__ so src/lib/dictionaries.ts can decode it
 //      in memory instead of fetching.
-//   4. Write dist-single/jp-payee-kana.html and clean up the assets folder.
+//   4. Write dist-single/jp-name-converter.html and clean up the assets folder.
 //
 // Result is a single ~6 MB HTML file that works entirely offline.
 
@@ -117,7 +117,7 @@ function main() {
   html = inlineAssets(html)
   html = injectDictionary(html)
 
-  const finalPath = join(outDir, "jp-payee-kana.html")
+  const finalPath = join(outDir, "jp-name-converter.html")
   writeFileSync(finalPath, html, "utf8")
   log(`wrote ${finalPath} (${html.length.toLocaleString()} chars)`)
 

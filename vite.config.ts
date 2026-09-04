@@ -52,8 +52,8 @@ export default defineConfig(({ mode }) => {
         registerType: "autoUpdate",
         includeAssets: ["favicon.svg", "data/enamdict-people.json.gz"],
         manifest: {
-          name: "JP Payee Kana",
-          short_name: "Payee Kana",
+          name: "JP Name Converter",
+          short_name: "Name Converter",
           description:
             "Convert beneficiary names to Zengin half-width katakana, offline.",
           theme_color: "#1e293b",

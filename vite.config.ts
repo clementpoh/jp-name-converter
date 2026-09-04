@@ -97,9 +97,24 @@ export default defineConfig(({ mode }) => {
       __SINGLEFILE__: JSON.stringify(singlefile),
     },
     resolve: {
-      alias: {
-        "@": path.resolve(import.meta.dirname, "./src"),
-      },
+      alias: [
+        {
+          find: "@",
+          replacement: path.resolve(import.meta.dirname, "./src"),
+        },
+        // Node's `path` gets externalized to an empty stub in browser bundles,
+        // so kuromoji's `path.join(dic_path, filename)` blows up with
+        // `n.join is not a function`. Redirect the bare specifier to a small
+        // browser shim. `node:path` (used by this config file) is unaffected
+        // because the prefix doesn't match.
+        {
+          find: /^path$/,
+          replacement: path.resolve(
+            import.meta.dirname,
+            "./src/shims/path.ts",
+          ),
+        },
+      ],
     },
     build: singlefile
       ? {
